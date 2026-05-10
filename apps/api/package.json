@@ -1,0 +1,17 @@
+{
+  "name": "@neon-poker/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "node dist/main.js",
+    "lint": "eslint .",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "e2e": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@neon-poker/contracts": "workspace:*"
+  }
+}
