@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { getTableName } from "drizzle-orm";
 
 import {
@@ -9,6 +11,10 @@ import {
   schema,
   virtualChipLedger
 } from "./index";
+
+const initialMigrationPath = fileURLToPath(
+  new URL("../drizzle/0000_secret_misty_knight.sql", import.meta.url)
+);
 
 describe("db foundation", () => {
   it("tracks append-only hand event storage as required MVP schema", () => {
@@ -45,5 +51,14 @@ describe("db foundation", () => {
     expect(MVP_TABLES).not.toContain("deposits");
     expect(MVP_TABLES).not.toContain("withdrawals");
     expect(MVP_TABLES).not.toContain("rake");
+  });
+
+  it("generates the initial migration for append-only events and idempotency", () => {
+    const migration = readFileSync(initialMigrationPath, "utf8");
+
+    expect(migration).toContain('CREATE TABLE "hand_events"');
+    expect(migration).toContain('PRIMARY KEY("hand_id","seq")');
+    expect(migration).toContain('CREATE TABLE "game_action_requests"');
+    expect(migration).toContain("game_action_requests_idempotency_unique");
   });
 });

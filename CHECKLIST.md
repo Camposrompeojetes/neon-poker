@@ -89,6 +89,7 @@ arquitectura-software-codex.pdf
   - [x] Lista inicial de tablas MVP requeridas.
   - [x] Incluye `hand_events`.
   - [x] Schemas Drizzle iniciales para usuarios, sesiones, mesas, manos, eventos append-only, participantes, idempotencia de acciones y ledger de fichas virtuales.
+  - [x] Migracion Drizzle inicial generada.
 - [x] `@neon-poker/ui`
   - [x] Utilidad base `cx`.
 - [x] `@neon-poker/config`

@@ -13,6 +13,8 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "db:generate": "drizzle-kit generate --config drizzle.config.mjs",
+    "db:migrate": "drizzle-kit migrate --config drizzle.config.mjs",
     "dev": "tsc -p tsconfig.json --watch",
     "lint": "eslint .",
     "test": "vitest run",
@@ -21,5 +23,8 @@
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.10"
   }
 }
