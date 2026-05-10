@@ -12,6 +12,7 @@
     "e2e": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@neon-poker/contracts": "workspace:*"
+    "@neon-poker/contracts": "workspace:*",
+    "@neon-poker/poker-engine": "workspace:*"
   }
 }

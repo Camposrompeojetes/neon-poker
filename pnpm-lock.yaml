@@ -38,6 +38,9 @@ importers:
       '@neon-poker/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@neon-poker/poker-engine':
+        specifier: workspace:*
+        version: link:../../packages/poker-engine
 
   apps/web:
     dependencies:

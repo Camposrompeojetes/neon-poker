@@ -100,6 +100,10 @@ arquitectura-software-codex.pdf
   - [x] Placeholder compilable.
   - [x] Validacion de mensajes entrantes usando contratos compartidos.
   - [x] Test de servidor autoritativo.
+  - [x] TableActor inicial single-writer en memoria.
+  - [x] Persistencia append-only de `hand_events` detras de interfaz.
+  - [x] Idempotencia persistida de `game.action` detras de interfaz.
+  - [x] Tests backend iniciales: join table, sit down, start hand, player action, rechazo fuera de turno, `expectedSeq`, idempotencia y privacidad.
 - [x] `apps/web`
   - [x] Placeholder compilable.
   - [x] Crea intencion tipada de suscripcion al lobby.
@@ -139,7 +143,7 @@ Nota: `docker compose config` no se pudo ejecutar porque Docker no esta instalad
 ## Pendiente inmediato
 
 - [ ] Hacer el primer commit del estado base y Fase 1 inicial.
-- [ ] Preparar el siguiente bloque: TableActor, persistencia e idempotencia backend.
+- [ ] Conectar TableActor a PostgreSQL real con Drizzle.
 
 ## Fuera de alcance por ahora
 

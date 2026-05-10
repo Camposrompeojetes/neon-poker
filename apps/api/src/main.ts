@@ -1,5 +1,7 @@
 import { ClientMessageSchema } from "@neon-poker/contracts";
 
+export * from "./table-actor";
+
 export function validateIncomingMessage(payload: unknown) {
   return ClientMessageSchema.parse(payload);
 }
@@ -12,4 +14,3 @@ export function getApiBootstrapStatus() {
     authoritativeServer: true
   } as const;
 }
-
