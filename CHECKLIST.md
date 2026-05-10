@@ -88,6 +88,7 @@ arquitectura-software-codex.pdf
 - [x] `@neon-poker/db`
   - [x] Lista inicial de tablas MVP requeridas.
   - [x] Incluye `hand_events`.
+  - [x] Schemas Drizzle iniciales para usuarios, sesiones, mesas, manos, eventos append-only, participantes, idempotencia de acciones y ledger de fichas virtuales.
 - [x] `@neon-poker/ui`
   - [x] Utilidad base `cx`.
 - [x] `@neon-poker/config`
@@ -137,7 +138,7 @@ Nota: `docker compose config` no se pudo ejecutar porque Docker no esta instalad
 ## Pendiente inmediato
 
 - [ ] Hacer el primer commit del estado base y Fase 1 inicial.
-- [ ] Preparar el siguiente bloque: schemas DB/Drizzle cuando cerremos Fase 1.
+- [ ] Preparar el siguiente bloque: TableActor, persistencia e idempotencia backend.
 
 ## Fuera de alcance por ahora
 

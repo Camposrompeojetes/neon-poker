@@ -83,6 +83,8 @@ Fase 0 iniciada:
 - Paquetes base creados.
 - Contratos iniciales con Zod.
 - Motor base con deck de 52 cartas y shuffle determinista por RNG inyectado.
+- Motor heads-up con eventos reproducibles, burn cards, split pot y side pots base.
+- Schemas Drizzle iniciales para las tablas MVP de PostgreSQL.
 - Docker Compose preparado para PostgreSQL y Redis.
 - CI de GitHub preparado.
 
