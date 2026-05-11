@@ -32,13 +32,17 @@ export type StoredGameActionRequest = {
 };
 
 export type TableActorStore = {
-  appendHandEvents(records: readonly PersistableHandEvent[]): void;
+  appendHandEvents(records: readonly PersistableHandEvent[]): Promise<void>;
   findGameActionRequest(args: {
     tableId: string;
     playerId: string;
     idempotencyKey: string;
-  }): StoredGameActionRequest | null;
-  saveGameActionRequest(record: StoredGameActionRequest): void;
+  }): Promise<StoredGameActionRequest | null>;
+  recordAcceptedGameAction(
+    record: StoredGameActionRequest,
+    handEvents: readonly PersistableHandEvent[]
+  ): Promise<void>;
+  recordRejectedGameAction(record: StoredGameActionRequest): Promise<void>;
 };
 
 export type ActorSuccess = {
@@ -63,13 +67,14 @@ export type TableActorOptions = {
   config?: TableConfig;
   engineDeps: EngineDeps;
   store: TableActorStore;
+  clock?: () => Date;
 };
 
 export class InMemoryTableActorStore implements TableActorStore {
   readonly handEvents: PersistableHandEvent[] = [];
   readonly gameActionRequests: StoredGameActionRequest[] = [];
 
-  appendHandEvents(records: readonly PersistableHandEvent[]): void {
+  async appendHandEvents(records: readonly PersistableHandEvent[]): Promise<void> {
     for (const record of records) {
       const alreadyExists = this.handEvents.some(
         (candidate) => candidate.handId === record.handId && candidate.seq === record.seq
@@ -83,11 +88,11 @@ export class InMemoryTableActorStore implements TableActorStore {
     this.handEvents.push(...records.map((record) => clone(record)));
   }
 
-  findGameActionRequest(args: {
+  async findGameActionRequest(args: {
     tableId: string;
     playerId: string;
     idempotencyKey: string;
-  }): StoredGameActionRequest | null {
+  }): Promise<StoredGameActionRequest | null> {
     return (
       this.gameActionRequests.find(
         (record) =>
@@ -98,8 +103,20 @@ export class InMemoryTableActorStore implements TableActorStore {
     );
   }
 
-  saveGameActionRequest(record: StoredGameActionRequest): void {
-    const existing = this.findGameActionRequest({
+  async recordAcceptedGameAction(
+    record: StoredGameActionRequest,
+    handEvents: readonly PersistableHandEvent[]
+  ): Promise<void> {
+    await this.appendHandEvents(handEvents);
+    await this.saveGameActionRequest(record);
+  }
+
+  async recordRejectedGameAction(record: StoredGameActionRequest): Promise<void> {
+    await this.saveGameActionRequest(record);
+  }
+
+  private async saveGameActionRequest(record: StoredGameActionRequest): Promise<void> {
+    const existing = await this.findGameActionRequest({
       tableId: record.tableId,
       playerId: record.playerId,
       idempotencyKey: record.idempotencyKey
@@ -118,11 +135,13 @@ export class TableActor {
   private readonly tableId: string;
   private readonly engineDeps: EngineDeps;
   private readonly store: TableActorStore;
+  private readonly clock: () => Date;
 
   constructor(options: TableActorOptions) {
     this.tableId = options.tableId;
     this.engineDeps = options.engineDeps;
     this.store = options.store;
+    this.clock = options.clock ?? (() => new Date());
     this.state = createInitialState(
       options.tableId,
       options.config ?? HEADS_UP_TABLE_CONFIG
@@ -148,7 +167,7 @@ export class TableActor {
     return this.snapshotForPlayer(args.playerId);
   }
 
-  startHand(args: { handId: string; buttonSeat?: number }): PublicTableView {
+  async startHand(args: { handId: string; buttonSeat?: number }): Promise<PublicTableView> {
     const before = this.state;
     const command =
       args.buttonSeat === undefined
@@ -157,16 +176,16 @@ export class TableActor {
     const events = decide(before, command, this.engineDeps);
     const handEvents = materializeHandEvents(before, events);
 
-    this.store.appendHandEvents(handEvents);
+    await this.store.appendHandEvents(handEvents);
     this.applyDomainEvents(events);
 
     return this.publicSnapshot();
   }
 
-  handleGameAction(
+  async handleGameAction(
     authenticatedPlayerId: string,
     message: GameActionMessage
-  ): ActorResult {
+  ): Promise<ActorResult> {
     if (message.tableId !== this.tableId) {
       return this.rejectWithoutRecording(authenticatedPlayerId, "table_mismatch", message);
     }
@@ -192,7 +211,7 @@ export class TableActor {
       expectedSeq: message.expectedSeq,
       action: message.action
     });
-    const existing = this.store.findGameActionRequest({
+    const existing = await this.store.findGameActionRequest({
       tableId: this.tableId,
       playerId: authenticatedPlayerId,
       idempotencyKey: message.idempotencyKey
@@ -228,9 +247,11 @@ export class TableActor {
       );
     }
 
+    const before = this.state;
+    let events: DomainEvent[];
+
     try {
-      const before = this.state;
-      const events = decide(
+      events = decide(
         before,
         {
           type: "PlayerAction",
@@ -241,35 +262,10 @@ export class TableActor {
         },
         this.engineDeps
       );
-      const handEvents = materializeHandEvents(before, events);
-      const eventSeqs = handEvents.map((event) => event.seq);
-
-      this.store.appendHandEvents(handEvents);
-      this.applyDomainEvents(events);
-      this.store.saveGameActionRequest({
-        tableId: this.tableId,
-        handId: activeHandId,
-        playerId: authenticatedPlayerId,
-        expectedSeq: message.expectedSeq,
-        idempotencyKey: message.idempotencyKey,
-        requestHash,
-        status: "accepted",
-        firstEventSeq: eventSeqs[0] ?? null,
-        lastEventSeq: eventSeqs[eventSeqs.length - 1] ?? null,
-        rejectionCode: null,
-        createdAt: new Date(0)
-      });
-
-      return {
-        ok: true,
-        duplicate: false,
-        snapshot: this.snapshotForPlayer(authenticatedPlayerId),
-        persistedEvents: handEvents.length
-      };
     } catch (error) {
       const code = errorCodeFromUnknown(error);
 
-      this.store.saveGameActionRequest({
+      await this.store.recordRejectedGameAction({
         tableId: this.tableId,
         handId: activeHandId,
         playerId: authenticatedPlayerId,
@@ -280,7 +276,7 @@ export class TableActor {
         firstEventSeq: null,
         lastEventSeq: null,
         rejectionCode: code,
-        createdAt: new Date(0)
+        createdAt: this.clock()
       });
 
       return this.failure(
@@ -290,6 +286,34 @@ export class TableActor {
         false
       );
     }
+
+    const handEvents = materializeHandEvents(before, events);
+    const eventSeqs = handEvents.map((event) => event.seq);
+
+    await this.store.recordAcceptedGameAction(
+      {
+        tableId: this.tableId,
+        handId: activeHandId,
+        playerId: authenticatedPlayerId,
+        expectedSeq: message.expectedSeq,
+        idempotencyKey: message.idempotencyKey,
+        requestHash,
+        status: "accepted",
+        firstEventSeq: eventSeqs[0] ?? null,
+        lastEventSeq: eventSeqs[eventSeqs.length - 1] ?? null,
+        rejectionCode: null,
+        createdAt: this.clock()
+      },
+      handEvents
+    );
+    this.applyDomainEvents(events);
+
+    return {
+      ok: true,
+      duplicate: false,
+      snapshot: this.snapshotForPlayer(authenticatedPlayerId),
+      persistedEvents: handEvents.length
+    };
   }
 
   snapshotForPlayer(playerId: string): PlayerTableView {

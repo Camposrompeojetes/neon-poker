@@ -13,6 +13,9 @@
   },
   "dependencies": {
     "@neon-poker/contracts": "workspace:*",
-    "@neon-poker/poker-engine": "workspace:*"
+    "@neon-poker/db": "workspace:*",
+    "@neon-poker/poker-engine": "workspace:*",
+    "drizzle-orm": "^0.45.2",
+    "postgres": "^3.4.9"
   }
 }

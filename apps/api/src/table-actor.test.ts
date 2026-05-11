@@ -30,12 +30,12 @@ function createActor() {
   return { actor, store };
 }
 
-function seatAndStartHand() {
+async function seatAndStartHand() {
   const { actor, store } = createActor();
 
   actor.sitDown({ playerId: "alice", seatIndex: 0 });
   actor.sitDown({ playerId: "bob", seatIndex: 1 });
-  actor.startHand({ handId: "hand_1", buttonSeat: 0 });
+  await actor.startHand({ handId: "hand_1", buttonSeat: 0 });
 
   return { actor, store };
 }
@@ -109,8 +109,8 @@ describe("TableActor", () => {
     expect(seated.hand).toBeNull();
   });
 
-  it("starts a hand, persists append-only internal events and returns filtered snapshots", () => {
-    const { actor, store } = seatAndStartHand();
+  it("starts a hand, persists append-only internal events and returns filtered snapshots", async () => {
+    const { actor, store } = await seatAndStartHand();
     const publicSnapshot = actor.publicSnapshot();
     const aliceSnapshot = actor.snapshotForPlayer("alice");
     const bobSeatInAliceSnapshot = aliceSnapshot.seats.find(
@@ -133,11 +133,11 @@ describe("TableActor", () => {
     expect(bobSeatInAliceSnapshot?.holeCards).toEqual([]);
   });
 
-  it("accepts an in-turn action, persists new hand events and updates the filtered snapshot", () => {
-    const { actor, store } = seatAndStartHand();
+  it("accepts an in-turn action, persists new hand events and updates the filtered snapshot", async () => {
+    const { actor, store } = await seatAndStartHand();
     const expectedSeq = actor.internalStateForTests().hand?.nextSeq ?? -1;
 
-    const result = actor.handleGameAction(
+    const result = await actor.handleGameAction(
       "alice",
       actionMessage("alice", expectedSeq, { type: "Call" }, "idem_alice_call_001")
     );
@@ -158,11 +158,11 @@ describe("TableActor", () => {
     expect(result.snapshot.hand?.activePlayerId).toBe("bob");
   });
 
-  it("rejects stale expectedSeq without appending hand events", () => {
-    const { actor, store } = seatAndStartHand();
+  it("rejects stale expectedSeq without appending hand events", async () => {
+    const { actor, store } = await seatAndStartHand();
     const beforeEventCount = store.handEvents.length;
 
-    const result = actor.handleGameAction(
+    const result = await actor.handleGameAction(
       "alice",
       actionMessage("alice", 0, { type: "Call" }, "idem_stale_seq_001")
     );
@@ -179,11 +179,11 @@ describe("TableActor", () => {
     });
   });
 
-  it("rejects out-of-turn actions", () => {
-    const { actor, store } = seatAndStartHand();
+  it("rejects out-of-turn actions", async () => {
+    const { actor, store } = await seatAndStartHand();
     const expectedSeq = actor.internalStateForTests().hand?.nextSeq ?? -1;
 
-    const result = actor.handleGameAction(
+    const result = await actor.handleGameAction(
       "bob",
       actionMessage("bob", expectedSeq, { type: "Check" }, "idem_bob_oop_001")
     );
@@ -196,8 +196,8 @@ describe("TableActor", () => {
     expect(store.handEvents).toHaveLength(6);
   });
 
-  it("returns the stored result for duplicate idempotent actions", () => {
-    const { actor, store } = seatAndStartHand();
+  it("returns the stored result for duplicate idempotent actions", async () => {
+    const { actor, store } = await seatAndStartHand();
     const expectedSeq = actor.internalStateForTests().hand?.nextSeq ?? -1;
     const message = actionMessage(
       "alice",
@@ -206,8 +206,8 @@ describe("TableActor", () => {
       "idem_duplicate_call_001"
     );
 
-    const first = actor.handleGameAction("alice", message);
-    const second = actor.handleGameAction("alice", message);
+    const first = await actor.handleGameAction("alice", message);
+    const second = await actor.handleGameAction("alice", message);
 
     expect(first.ok).toBe(true);
     expect(second.ok).toBe(true);
@@ -216,15 +216,15 @@ describe("TableActor", () => {
     expect(store.handEvents).toHaveLength(8);
   });
 
-  it("rejects idempotency key reuse for a different action", () => {
-    const { actor, store } = seatAndStartHand();
+  it("rejects idempotency key reuse for a different action", async () => {
+    const { actor, store } = await seatAndStartHand();
     const expectedSeq = actor.internalStateForTests().hand?.nextSeq ?? -1;
 
-    actor.handleGameAction(
+    await actor.handleGameAction(
       "alice",
       actionMessage("alice", expectedSeq, { type: "Call" }, "idem_reused_001")
     );
-    const reused = actor.handleGameAction(
+    const reused = await actor.handleGameAction(
       "alice",
       actionMessage("alice", expectedSeq, { type: "Raise", amount: 20 }, "idem_reused_001")
     );
@@ -238,11 +238,11 @@ describe("TableActor", () => {
     expect(store.gameActionRequests).toHaveLength(1);
   });
 
-  it("rejects player identity mismatches before reaching the engine", () => {
-    const { actor, store } = seatAndStartHand();
+  it("rejects player identity mismatches before reaching the engine", async () => {
+    const { actor, store } = await seatAndStartHand();
     const expectedSeq = actor.internalStateForTests().hand?.nextSeq ?? -1;
 
-    const result = actor.handleGameAction(
+    const result = await actor.handleGameAction(
       "alice",
       actionMessage("bob", expectedSeq, { type: "Check" }, "idem_identity_001")
     );

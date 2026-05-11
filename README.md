@@ -74,7 +74,7 @@ pnpm run ci
 
 ## Estado actual
 
-Fase 0 iniciada:
+Fase 0 completa y Fase 1 heads-up cerrada a nivel de motor:
 
 - Workspace pnpm configurado.
 - Turborepo configurado.
@@ -85,6 +85,7 @@ Fase 0 iniciada:
 - Motor base con deck de 52 cartas y shuffle determinista por RNG inyectado.
 - Motor heads-up con eventos reproducibles, burn cards, split pot y side pots base.
 - Schemas Drizzle iniciales para las tablas MVP de PostgreSQL.
+- TableActor backend single-writer con store en memoria para tests y store Drizzle/PostgreSQL para persistencia real.
 - Docker Compose preparado para PostgreSQL y Redis.
 - CI de GitHub preparado.
 
