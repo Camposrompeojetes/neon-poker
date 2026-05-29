@@ -10,7 +10,11 @@ import {
   parseCard
 } from "@neon-poker/poker-engine";
 
-import { InMemoryTableActorStore, TableActor } from "./table-actor";
+import {
+  InMemoryTableActorStore,
+  TableActor,
+  restoreStateFromHandReplay
+} from "./table-actor";
 
 const COMMON_HAND = headsUpDeck({
   alice: ["Ah", "As"],
@@ -124,6 +128,10 @@ describe("TableActor", () => {
       schemaVersion: 1
     });
     expect(store.handEvents[0]?.payload).toHaveProperty("deck");
+    expect(store.handParticipants).toEqual([
+      { handId: "hand_1", playerId: "alice", seatIndex: 0, startingStack: 1000 },
+      { handId: "hand_1", playerId: "bob", seatIndex: 1, startingStack: 1000 }
+    ]);
     expect(publicSnapshot.seats.every((seat) => "holeCards" in seat === false)).toBe(
       true
     );
@@ -131,6 +139,36 @@ describe("TableActor", () => {
       aliceSnapshot.seats.find((seat) => seat.playerId === "alice")?.holeCards.map(cardKey)
     ).toEqual(["Ah", "As"]);
     expect(bobSeatInAliceSnapshot?.holeCards).toEqual([]);
+  });
+
+  it("restores a hand state from persisted participants and events", async () => {
+    const { actor, store } = await seatAndStartHand();
+    const replay = await store.loadLatestHandReplay();
+
+    if (replay === null) {
+      throw new Error("Expected persisted hand replay");
+    }
+
+    const restored = restoreStateFromHandReplay(
+      "table_1",
+      HEADS_UP_TABLE_CONFIG,
+      replay
+    );
+    const restoredActor = new TableActor({
+      tableId: "table_1",
+      config: HEADS_UP_TABLE_CONFIG,
+      engineDeps: riggedDeps(COMMON_HAND),
+      store,
+      initialState: restored
+    });
+
+    expect(restoredActor.internalStateForTests()).toEqual(actor.internalStateForTests());
+    expect(
+      restoredActor
+        .snapshotForPlayer("alice")
+        .seats.find((seat) => seat.playerId === "alice")
+        ?.holeCards.map(cardKey)
+    ).toEqual(["Ah", "As"]);
   });
 
   it("accepts an in-turn action, persists new hand events and updates the filtered snapshot", async () => {

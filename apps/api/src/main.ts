@@ -23,8 +23,8 @@ export function getApiBootstrapStatus() {
 }
 
 if (isMainModule()) {
-  const { startApiHttpServer } = await import("./http-server.js");
-  const started = startApiHttpServer();
+  const { startRestoredApiHttpServer } = await import("./http-server.js");
+  const started = await startRestoredApiHttpServer();
 
   process.on("SIGINT", () => {
     void started.close().finally(() => {

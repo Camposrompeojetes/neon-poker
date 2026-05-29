@@ -1,9 +1,10 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
 import {
   gameActionRequests,
+  handParticipants,
   handEvents,
   hands,
   schema as dbSchema,
@@ -14,6 +15,8 @@ import type { PersistableHandEvent, TableConfig } from "@neon-poker/poker-engine
 
 import type {
   StoredGameActionRequest,
+  StoredHandParticipant,
+  StoredHandReplay,
   TableActorStore
 } from "./table-actor.js";
 
@@ -74,6 +77,81 @@ export class DrizzleTableActorStore implements TableActorStore {
       await this.ensureStartedHands(transaction, records);
       await transaction.insert(handEvents).values(records.map(toHandEventRow));
     });
+  }
+
+  async recordStartedHand(args: {
+    participants: readonly StoredHandParticipant[];
+    handEvents: readonly PersistableHandEvent[];
+  }): Promise<void> {
+    if (args.handEvents.length === 0) {
+      return;
+    }
+
+    await this.db.transaction(async (transaction) => {
+      await this.ensureTable(transaction);
+      await this.ensureStartedHands(transaction, args.handEvents);
+
+      for (const participant of args.participants) {
+        await this.ensureUser(transaction, participant.playerId);
+      }
+
+      if (args.participants.length > 0) {
+        await transaction
+          .insert(handParticipants)
+          .values(args.participants.map(toHandParticipantRow))
+          .onConflictDoNothing();
+      }
+
+      await transaction.insert(handEvents).values(args.handEvents.map(toHandEventRow));
+    });
+  }
+
+  async loadLatestHandReplay(): Promise<StoredHandReplay | null> {
+    const [latestHand] = await this.db
+      .select({ id: hands.id })
+      .from(hands)
+      .where(eq(hands.tableId, this.tableId))
+      .orderBy(desc(hands.handNumber))
+      .limit(1);
+
+    if (latestHand === undefined) {
+      return null;
+    }
+
+    const [participantRows, eventRows] = await Promise.all([
+      this.db
+        .select()
+        .from(handParticipants)
+        .where(eq(handParticipants.handId, latestHand.id))
+        .orderBy(asc(handParticipants.seatIndex)),
+      this.db
+        .select()
+        .from(handEvents)
+        .where(eq(handEvents.handId, latestHand.id))
+        .orderBy(asc(handEvents.seq))
+    ]);
+
+    if (participantRows.length === 0 || eventRows.length === 0) {
+      return null;
+    }
+
+    return {
+      handId: latestHand.id,
+      participants: participantRows.map((participant) => ({
+        handId: participant.handId,
+        playerId: participant.userId,
+        seatIndex: participant.seatIndex,
+        startingStack: participant.startingStack
+      })),
+      handEvents: eventRows.map((event) => ({
+        handId: event.handId,
+        seq: event.seq,
+        eventType: event.eventType,
+        payload: event.payload,
+        schemaVersion: event.schemaVersion,
+        stateHashAfter: event.stateHashAfter
+      }))
+    };
   }
 
   async findGameActionRequest(args: {
@@ -220,6 +298,15 @@ function toHandEventRow(record: PersistableHandEvent) {
     payload: record.payload,
     schemaVersion: record.schemaVersion,
     stateHashAfter: record.stateHashAfter
+  };
+}
+
+function toHandParticipantRow(record: StoredHandParticipant) {
+  return {
+    handId: record.handId,
+    userId: record.playerId,
+    seatIndex: record.seatIndex,
+    startingStack: record.startingStack
   };
 }
 

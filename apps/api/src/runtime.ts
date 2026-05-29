@@ -12,7 +12,12 @@ import {
   type ApiDatabase,
   type ApiDatabaseConnection
 } from "./drizzle-table-actor-store.js";
-import { TableActor, type TableActorStore } from "./table-actor.js";
+import {
+  TableActor,
+  restoreStateFromHandReplay,
+  type StoredHandReplay,
+  type TableActorStore
+} from "./table-actor.js";
 
 export type ApiRuntimeEnv = {
   DATABASE_URL?: string;
@@ -30,6 +35,7 @@ export type ApiRuntimeOptions = {
   config?: TableConfig;
   engineDeps?: EngineDeps;
   clock?: () => Date;
+  initialState?: ReturnType<typeof restoreStateFromHandReplay>;
   createDatabaseConnection?: (databaseUrl: string) => ApiDatabaseConnection;
 };
 
@@ -84,7 +90,8 @@ export function createApiRuntime(options: ApiRuntimeOptions = {}): ApiRuntime {
     config,
     engineDeps: options.engineDeps ?? createRuntimeEngineDeps(),
     store,
-    ...(clock === undefined ? {} : { clock })
+    ...(clock === undefined ? {} : { clock }),
+    ...(options.initialState === undefined ? {} : { initialState: options.initialState })
   });
 
   return {
@@ -95,6 +102,35 @@ export function createApiRuntime(options: ApiRuntimeOptions = {}): ApiRuntime {
     tableName,
     config,
     close
+  };
+}
+
+export async function createRestoredApiRuntime(
+  options: ApiRuntimeOptions = {}
+): Promise<ApiRuntime> {
+  const runtime = createApiRuntime(options);
+  const replay = await loadLatestHandReplay(runtime.store);
+
+  if (replay === null) {
+    return runtime;
+  }
+
+  const restoredState = restoreStateFromHandReplay(
+    runtime.tableId,
+    runtime.config,
+    replay
+  );
+
+  return {
+    ...runtime,
+    actor: new TableActor({
+      tableId: runtime.tableId,
+      config: runtime.config,
+      engineDeps: options.engineDeps ?? createRuntimeEngineDeps(),
+      store: runtime.store,
+      ...(options.clock === undefined ? {} : { clock: options.clock }),
+      initialState: restoredState
+    })
   };
 }
 
@@ -117,6 +153,16 @@ function requireDatabaseUrl(databaseUrl: string | undefined): string {
 function nonEmpty(value: string | undefined, fallback: string): string {
   const trimmed = value?.trim();
   return trimmed === undefined || trimmed.length === 0 ? fallback : trimmed;
+}
+
+async function loadLatestHandReplay(
+  store: TableActorStore
+): Promise<StoredHandReplay | null> {
+  if (store.loadLatestHandReplay === undefined) {
+    return null;
+  }
+
+  return store.loadLatestHandReplay();
 }
 
 function cryptoRng(): number {

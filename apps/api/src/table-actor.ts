@@ -4,14 +4,17 @@ import {
   type EngineDeps,
   type GameState,
   HEADS_UP_TABLE_CONFIG,
+  type HandDomainEvent,
   type PersistableHandEvent,
   type PlayerTableView,
   type PublicTableView,
   type TableConfig,
+  applyEvent,
   applyEvents,
   createInitialState,
   decide,
   materializeHandEvents,
+  stateHash,
   toPlayerTableView,
   toPublicTableView,
   toSpectatorView
@@ -31,8 +34,26 @@ export type StoredGameActionRequest = {
   createdAt: Date;
 };
 
+export type StoredHandParticipant = {
+  handId: string;
+  playerId: string;
+  seatIndex: number;
+  startingStack: number;
+};
+
+export type StoredHandReplay = {
+  handId: string;
+  participants: readonly StoredHandParticipant[];
+  handEvents: readonly PersistableHandEvent[];
+};
+
 export type TableActorStore = {
   appendHandEvents(records: readonly PersistableHandEvent[]): Promise<void>;
+  recordStartedHand(args: {
+    participants: readonly StoredHandParticipant[];
+    handEvents: readonly PersistableHandEvent[];
+  }): Promise<void>;
+  loadLatestHandReplay?(): Promise<StoredHandReplay | null>;
   findGameActionRequest(args: {
     tableId: string;
     playerId: string;
@@ -68,10 +89,12 @@ export type TableActorOptions = {
   engineDeps: EngineDeps;
   store: TableActorStore;
   clock?: () => Date;
+  initialState?: GameState;
 };
 
 export class InMemoryTableActorStore implements TableActorStore {
   readonly handEvents: PersistableHandEvent[] = [];
+  readonly handParticipants: StoredHandParticipant[] = [];
   readonly gameActionRequests: StoredGameActionRequest[] = [];
 
   async appendHandEvents(records: readonly PersistableHandEvent[]): Promise<void> {
@@ -86,6 +109,37 @@ export class InMemoryTableActorStore implements TableActorStore {
     }
 
     this.handEvents.push(...records.map((record) => clone(record)));
+  }
+
+  async recordStartedHand(args: {
+    participants: readonly StoredHandParticipant[];
+    handEvents: readonly PersistableHandEvent[];
+  }): Promise<void> {
+    await this.appendHandEvents(args.handEvents);
+    this.handParticipants.push(...args.participants.map((participant) => clone(participant)));
+  }
+
+  async loadLatestHandReplay(): Promise<StoredHandReplay | null> {
+    const latestHandId = this.handEvents.at(-1)?.handId;
+
+    if (latestHandId === undefined) {
+      return null;
+    }
+
+    const handEvents = this.handEvents.filter((event) => event.handId === latestHandId);
+    const participants = this.handParticipants.filter(
+      (participant) => participant.handId === latestHandId
+    );
+
+    if (handEvents.length === 0 || participants.length === 0) {
+      return null;
+    }
+
+    return {
+      handId: latestHandId,
+      participants: participants.map((participant) => clone(participant)),
+      handEvents: handEvents.map((event) => clone(event))
+    };
   }
 
   async findGameActionRequest(args: {
@@ -142,10 +196,9 @@ export class TableActor {
     this.engineDeps = options.engineDeps;
     this.store = options.store;
     this.clock = options.clock ?? (() => new Date());
-    this.state = createInitialState(
-      options.tableId,
-      options.config ?? HEADS_UP_TABLE_CONFIG
-    );
+    this.state =
+      options.initialState ??
+      createInitialState(options.tableId, options.config ?? HEADS_UP_TABLE_CONFIG);
   }
 
   joinTable(playerId: string): PlayerTableView {
@@ -176,7 +229,10 @@ export class TableActor {
     const events = decide(before, command, this.engineDeps);
     const handEvents = materializeHandEvents(before, events);
 
-    await this.store.appendHandEvents(handEvents);
+    await this.store.recordStartedHand({
+      participants: handParticipantsFromState(before, args.handId),
+      handEvents
+    });
     this.applyDomainEvents(events);
 
     return this.publicSnapshot();
@@ -362,6 +418,82 @@ export class TableActor {
       message,
       snapshot: this.snapshotForPlayer(playerId)
     };
+  }
+}
+
+export function restoreStateFromHandReplay(
+  tableId: string,
+  config: TableConfig,
+  replay: StoredHandReplay
+): GameState {
+  let state = createInitialState(tableId, config);
+
+  for (const participant of replay.participants) {
+    state = applyEvent(state, {
+      type: "PlayerSeated",
+      playerId: participant.playerId,
+      seatIndex: participant.seatIndex,
+      stack: participant.startingStack
+    });
+  }
+
+  for (const record of replay.handEvents) {
+    const event = handEventFromRecord(record);
+    state = applyEvent(state, event);
+
+    if (stateHash(state) !== record.stateHashAfter) {
+      throw new Error(`State hash mismatch while restoring ${record.handId}#${record.seq}`);
+    }
+  }
+
+  return state;
+}
+
+function handParticipantsFromState(
+  state: GameState,
+  handId: string
+): StoredHandParticipant[] {
+  return state.seats
+    .filter((seat) => seat.playerId !== null && seat.stack > 0)
+    .map((seat) => {
+      if (seat.playerId === null) {
+        throw new Error("Expected seated player");
+      }
+
+      return {
+        handId,
+        playerId: seat.playerId,
+        seatIndex: seat.seatIndex,
+        startingStack: seat.stack
+      };
+    });
+}
+
+function handEventFromRecord(record: PersistableHandEvent): HandDomainEvent {
+  const payload = record.payload;
+  const base = {
+    handId: record.handId,
+    seq: record.seq
+  };
+
+  switch (record.eventType) {
+    case "HandStarted":
+    case "PrivateCardsDealt":
+    case "BlindPosted":
+    case "ActionRequested":
+    case "PlayerActed":
+    case "BoardCardsDealt":
+    case "CardBurned":
+    case "StreetAdvanced":
+    case "ShowdownStarted":
+    case "HandEnded":
+      return {
+        ...base,
+        type: record.eventType,
+        ...payload
+      } as HandDomainEvent;
+    default:
+      throw new Error(`Unsupported hand event type: ${record.eventType}`);
   }
 }
 

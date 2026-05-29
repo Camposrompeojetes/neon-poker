@@ -3,7 +3,12 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { ServerEnvelope } from "@neon-poker/contracts";
 
 import { ApiMessageRouter } from "./message-router.js";
-import { createApiRuntime, type ApiRuntime, type ApiRuntimeOptions } from "./runtime.js";
+import {
+  createApiRuntime,
+  createRestoredApiRuntime,
+  type ApiRuntime,
+  type ApiRuntimeOptions
+} from "./runtime.js";
 
 export type ApiHttpServerOptions = {
   runtime: ApiRuntime;
@@ -41,8 +46,22 @@ export function startApiHttpServer(
   options: ApiRuntimeOptions & { port?: number } = {}
 ): StartedApiHttpServer {
   const runtime = createApiRuntime(options);
+  return startApiHttpServerWithRuntime(runtime, options.port);
+}
+
+export async function startRestoredApiHttpServer(
+  options: ApiRuntimeOptions & { port?: number } = {}
+): Promise<StartedApiHttpServer> {
+  const runtime = await createRestoredApiRuntime(options);
+  return startApiHttpServerWithRuntime(runtime, options.port);
+}
+
+function startApiHttpServerWithRuntime(
+  runtime: ApiRuntime,
+  portOverride: number | undefined
+): StartedApiHttpServer {
   const server = createApiHttpServer({ runtime });
-  const port = options.port ?? Number(process.env.API_PORT ?? 4000);
+  const port = portOverride ?? Number(process.env.API_PORT ?? 4000);
 
   server.listen(port);
 
