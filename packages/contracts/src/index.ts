@@ -60,7 +60,7 @@ export const HandRankSchema = z
   .object({
     category: HandCategorySchema,
     categoryValue: NonnegativeAmountSchema,
-    ranks: z.array(NonnegativeAmountSchema)
+    ranks: z.array(NonnegativeAmountSchema).readonly()
   })
   .strict();
 
@@ -109,6 +109,15 @@ export const TableJoinMessageSchema = z
   })
   .strict();
 
+export const TableSitDownMessageSchema = z
+  .object({
+    type: z.literal("table.sitDown"),
+    requestId: RequestIdSchema,
+    tableId: IdSchema,
+    seatIndex: SequenceSchema
+  })
+  .strict();
+
 export const GameActionMessageSchema = z
   .object({
     type: z.literal("game.action"),
@@ -124,6 +133,7 @@ export const GameActionMessageSchema = z
 export const ClientMessageSchema = z.discriminatedUnion("type", [
   LobbySubscribeMessageSchema,
   TableJoinMessageSchema,
+  TableSitDownMessageSchema,
   GameActionMessageSchema
 ]);
 
@@ -157,32 +167,32 @@ export const PublicSeatViewSchema = z
   .strict();
 
 export const PlayerSeatViewSchema = PublicSeatViewSchema.extend({
-  holeCards: z.array(CardSchema)
+  holeCards: z.array(CardSchema).readonly()
 }).strict();
 
 export const PublicHandSnapshotSchema = z
   .object({
     handId: IdSchema,
     buttonSeat: SequenceSchema,
-    board: z.array(CardSchema),
+    board: z.array(CardSchema).readonly(),
     street: StreetSchema,
     pot: NonnegativeAmountSchema,
     currentBet: NonnegativeAmountSchema,
     activePlayerId: IdSchema.nullable(),
     nextSeq: SequenceSchema,
     handComplete: z.boolean(),
-    winners: z.array(WinnerSchema)
+    winners: z.array(WinnerSchema).readonly()
   })
   .strict();
 
 export const PlayerHandSnapshotSchema = PublicHandSnapshotSchema.extend({
-  legalActions: z.array(LegalActionSchema)
+  legalActions: z.array(LegalActionSchema).readonly()
 }).strict();
 
 export const PublicTableSnapshotSchema = z
   .object({
     tableId: IdSchema,
-    seats: z.array(PublicSeatViewSchema),
+    seats: z.array(PublicSeatViewSchema).readonly(),
     hand: PublicHandSnapshotSchema.nullable()
   })
   .strict();
@@ -190,7 +200,7 @@ export const PublicTableSnapshotSchema = z
 export const PlayerTableSnapshotSchema = z
   .object({
     tableId: IdSchema,
-    seats: z.array(PlayerSeatViewSchema),
+    seats: z.array(PlayerSeatViewSchema).readonly(),
     hand: PlayerHandSnapshotSchema.nullable()
   })
   .strict();
@@ -235,7 +245,7 @@ export const PublicReplayEventSchema = z.discriminatedUnion("eventType", [
     payload: z
       .object({
         street: BoardStreetSchema,
-        cards: z.array(CardSchema)
+        cards: z.array(CardSchema).readonly()
       })
       .strict()
   }).strict(),
@@ -251,7 +261,7 @@ export const PublicReplayEventSchema = z.discriminatedUnion("eventType", [
     eventType: z.literal("HandEnded"),
     payload: z
       .object({
-        winners: z.array(WinnerSchema),
+        winners: z.array(WinnerSchema).readonly(),
         reason: z.enum(["fold", "showdown"])
       })
       .strict()
@@ -293,6 +303,7 @@ export type PokerAction = z.infer<typeof PokerActionSchema>;
 export type LegalAction = z.infer<typeof LegalActionSchema>;
 export type ClientMessage = z.infer<typeof ClientMessageSchema>;
 export type GameActionMessage = z.infer<typeof GameActionMessageSchema>;
+export type TableSitDownMessage = z.infer<typeof TableSitDownMessageSchema>;
 export type HandEvent = z.infer<typeof HandEventSchema>;
 export type PublicTableSnapshot = z.infer<typeof PublicTableSnapshotSchema>;
 export type PlayerTableSnapshot = z.infer<typeof PlayerTableSnapshotSchema>;

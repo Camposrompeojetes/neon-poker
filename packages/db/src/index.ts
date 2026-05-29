@@ -16,4 +16,4 @@ export function isRequiredMvpTable(tableName: string): tableName is MvpTableName
   return MVP_TABLES.includes(tableName as MvpTableName);
 }
 
-export * from "./schema";
+export * from "./schema.js";

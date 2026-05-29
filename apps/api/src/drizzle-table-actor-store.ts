@@ -7,14 +7,15 @@ import {
   handEvents,
   hands,
   schema as dbSchema,
-  tables
+  tables,
+  users
 } from "@neon-poker/db";
 import type { PersistableHandEvent, TableConfig } from "@neon-poker/poker-engine";
 
 import type {
   StoredGameActionRequest,
   TableActorStore
-} from "./table-actor";
+} from "./table-actor.js";
 
 export type ApiDatabase = PostgresJsDatabase<typeof dbSchema>;
 type ApiTransaction = Parameters<Parameters<ApiDatabase["transaction"]>[0]>[0];
@@ -123,6 +124,7 @@ export class DrizzleTableActorStore implements TableActorStore {
         await transaction.insert(handEvents).values(records.map(toHandEventRow));
       }
 
+      await this.ensureUser(transaction, record.playerId);
       await transaction.insert(gameActionRequests).values(
         toGameActionRequestRow(
           record,
@@ -136,6 +138,7 @@ export class DrizzleTableActorStore implements TableActorStore {
   async recordRejectedGameAction(record: StoredGameActionRequest): Promise<void> {
     await this.db.transaction(async (transaction) => {
       await this.ensureTable(transaction);
+      await this.ensureUser(transaction, record.playerId);
       await transaction.insert(gameActionRequests).values(
         toGameActionRequestRow(
           record,
@@ -194,6 +197,18 @@ export class DrizzleTableActorStore implements TableActorStore {
         schemaVersion: record.schemaVersion
       });
     }
+  }
+
+  private async ensureUser(transaction: ApiTransaction, userId: string): Promise<void> {
+    await transaction
+      .insert(users)
+      .values({
+        id: userId,
+        username: userId,
+        displayName: userId,
+        passwordHash: "local-dev-placeholder"
+      })
+      .onConflictDoNothing();
   }
 }
 

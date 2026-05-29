@@ -11,8 +11,8 @@ import {
   DrizzleTableActorStore,
   type ApiDatabase,
   type ApiDatabaseConnection
-} from "./drizzle-table-actor-store";
-import { TableActor, type TableActorStore } from "./table-actor";
+} from "./drizzle-table-actor-store.js";
+import { TableActor, type TableActorStore } from "./table-actor.js";
 
 export type ApiRuntimeEnv = {
   DATABASE_URL?: string;

@@ -40,6 +40,32 @@ describe("shared contracts", () => {
     ).toThrow();
   });
 
+  it("accepts a sit-down intent without client-controlled stack", () => {
+    const message = ClientMessageSchema.parse({
+      type: "table.sitDown",
+      requestId: "req_sit",
+      tableId: "table_1",
+      seatIndex: 0
+    });
+
+    expect(message).toEqual({
+      type: "table.sitDown",
+      requestId: "req_sit",
+      tableId: "table_1",
+      seatIndex: 0
+    });
+
+    expect(() =>
+      ClientMessageSchema.parse({
+        type: "table.sitDown",
+        requestId: "req_sit",
+        tableId: "table_1",
+        seatIndex: 0,
+        stack: 1000
+      })
+    ).toThrow();
+  });
+
   it("requires event sourcing fields for hand events", () => {
     const event = HandEventSchema.parse({
       handId: "hand_1",

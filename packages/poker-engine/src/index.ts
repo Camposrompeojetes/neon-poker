@@ -1,3 +1,3 @@
-export * from "./cards";
-export * from "./engine";
-export * from "./evaluator";
+export * from "./cards.js";
+export * from "./engine.js";
+export * from "./evaluator.js";

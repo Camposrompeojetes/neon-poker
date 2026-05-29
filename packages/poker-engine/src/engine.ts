@@ -5,8 +5,8 @@ import {
   cardKey,
   createDeck,
   shuffleDeck
-} from "./cards";
-import { compareHandRanks, evaluateTexasHoldem, type HandRank } from "./evaluator";
+} from "./cards.js";
+import { compareHandRanks, evaluateTexasHoldem, type HandRank } from "./evaluator.js";
 
 export type Street = "waiting" | "preflop" | "flop" | "turn" | "river" | "showdown" | "ended";
 export type PlayerStatus = "empty" | "seated" | "inHand" | "folded" | "allIn";

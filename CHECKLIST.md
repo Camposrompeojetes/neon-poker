@@ -107,6 +107,11 @@ arquitectura-software-codex.pdf
   - [x] Persistencia append-only de `hand_events` detras de interfaz.
   - [x] Idempotencia persistida de `game.action` detras de interfaz.
   - [x] Store Drizzle/PostgreSQL para TableActor con transacciones, eventos append-only e idempotencia.
+  - [x] Runtime API real con `TableActor` y `DrizzleTableActorStore`.
+  - [x] Router autoritativo de mensajes reutilizable por HTTP y futuro Socket.IO.
+  - [x] HTTP minimo: `GET /health`, `GET /tables/:tableId/snapshot`, `POST /messages`.
+  - [x] `table.sitDown` valida payload con Zod, no acepta stack del cliente y autoinicia mano heads-up.
+  - [x] Prueba de humo contra PostgreSQL real: sit down x2, start hand y `game.action`.
   - [x] Tests backend iniciales: join table, sit down, start hand, player action, rechazo fuera de turno, `expectedSeq`, idempotencia y privacidad.
 - [x] `apps/web`
   - [x] Placeholder compilable.

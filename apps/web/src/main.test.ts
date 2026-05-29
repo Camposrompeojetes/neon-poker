@@ -9,6 +9,7 @@ import {
   createHandReplay,
   createLobbySubscribeMessage,
   createTableJoinMessage,
+  createTableSitDownMessage,
   getWebBootstrapStatus,
   stepHandReplay,
   toTableViewModel
@@ -31,6 +32,12 @@ describe("web bootstrap contract", () => {
       type: "table.join",
       requestId: "req_join",
       tableId: "table_1"
+    });
+    expect(createTableSitDownMessage("req_sit", "table_1", 0)).toEqual({
+      type: "table.sitDown",
+      requestId: "req_sit",
+      tableId: "table_1",
+      seatIndex: 0
     });
 
     expect(

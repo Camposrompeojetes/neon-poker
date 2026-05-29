@@ -26,6 +26,19 @@ export function createTableJoinMessage(requestId: string, tableId: string): Clie
   };
 }
 
+export function createTableSitDownMessage(
+  requestId: string,
+  tableId: string,
+  seatIndex: number
+): ClientMessage {
+  return {
+    type: "table.sitDown",
+    requestId,
+    tableId,
+    seatIndex
+  };
+}
+
 export function createGameActionMessage(args: {
   requestId: string;
   tableId: string;

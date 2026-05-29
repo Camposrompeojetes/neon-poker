@@ -1,4 +1,4 @@
-import { type Card, RANK_VALUES } from "./cards";
+import { type Card, RANK_VALUES } from "./cards.js";
 
 export const HAND_CATEGORIES = [
   "high-card",
@@ -247,4 +247,3 @@ function fiveCardCombinations(cards: readonly Card[]): Card[][] {
 
   return combinations;
 }
-
