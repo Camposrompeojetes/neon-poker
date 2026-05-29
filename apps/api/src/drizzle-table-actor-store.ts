@@ -19,6 +19,11 @@ import type {
 export type ApiDatabase = PostgresJsDatabase<typeof dbSchema>;
 type ApiTransaction = Parameters<Parameters<ApiDatabase["transaction"]>[0]>[0];
 
+export type ApiDatabaseConnection = {
+  db: ApiDatabase;
+  close: () => Promise<void>;
+};
+
 export type DrizzleTableActorStoreOptions = {
   db: ApiDatabase;
   tableId: string;
@@ -29,8 +34,15 @@ export type DrizzleTableActorStoreOptions = {
 };
 
 export function createApiDatabase(databaseUrl: string): ApiDatabase {
+  return createApiDatabaseConnection(databaseUrl).db;
+}
+
+export function createApiDatabaseConnection(databaseUrl: string): ApiDatabaseConnection {
   const client = postgres(databaseUrl);
-  return drizzle(client, { schema: dbSchema });
+  return {
+    db: drizzle(client, { schema: dbSchema }),
+    close: () => client.end()
+  };
 }
 
 export class DrizzleTableActorStore implements TableActorStore {

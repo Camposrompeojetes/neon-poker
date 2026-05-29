@@ -1,6 +1,6 @@
 # Checklist del proyecto Neon Poker
 
-Ultima actualizacion: 2026-05-11
+Ultima actualizacion: 2026-05-29
 
 Este documento resume el contexto operativo del proyecto para no perder el hilo entre sesiones.
 
@@ -68,6 +68,9 @@ arquitectura-software-codex.pdf
   - [x] Mensajes cliente: `lobby.subscribe`, `table.join`, `game.action`.
   - [x] `game.action` exige `expectedSeq` e `idempotencyKey`.
   - [x] `HandEventSchema` exige `handId`, `seq`, `eventType`, `payload`, `schemaVersion` y `stateHashAfter`.
+  - [x] Schemas de snapshots filtrados de mesa publica/jugador y envelope `table.snapshot`.
+  - [x] Legal actions compartidas para que el cliente renderice controles sin calcular reglas.
+  - [x] Schemas de eventos publicos sanitizados para replayer sin cartas privadas, deck ni burn cards.
   - [x] Test que rechaza estado autoritativo enviado por el cliente.
 - [x] `@neon-poker/poker-engine`
   - [x] Deck de 52 cartas.
@@ -109,6 +112,11 @@ arquitectura-software-codex.pdf
   - [x] Placeholder compilable.
   - [x] Crea intencion tipada de suscripcion al lobby.
   - [x] Test de cliente no autoritativo.
+  - [x] Crea intenciones tipadas de join table y game action.
+  - [x] Renderiza view-model de mesa desde snapshot filtrado.
+  - [x] Renderiza controles legales solo desde `legalActions` enviadas por el servidor.
+  - [x] Sincroniza snapshots `table.snapshot` e ignora snapshots antiguos.
+  - [x] Replayer publico basico desde eventos sanitizados.
 
 ## Comprobaciones ya ejecutadas
 
@@ -116,9 +124,18 @@ arquitectura-software-codex.pdf
 - [x] `pnpm typecheck`
 - [x] `pnpm lint`
 - [x] `pnpm build`
-- [ ] `docker compose config`
+- [x] `pnpm -r --workspace-concurrency=1 test`
+- [x] `pnpm -r --workspace-concurrency=1 lint`
+- [x] `pnpm -r --workspace-concurrency=1 typecheck`
+- [x] `pnpm -r --workspace-concurrency=1 build`
+- [x] `docker compose config`
+- [x] `docker compose up -d postgres`
+- [x] `pnpm --filter @neon-poker/db db:migrate`
+- [x] Verificar tablas creadas en PostgreSQL real.
 
-Nota: `docker compose config` no se pudo ejecutar porque Docker no esta instalado o no esta disponible en el PATH de esta maquina.
+Nota: `docker compose config` se ejecuto correctamente el 2026-05-29; Docker aviso que no puede leer `C:\Users\Kingo\.docker\config.json` por permisos, pero devolvio la configuracion.
+Nota: en esta sesion, `pnpm test` y `pnpm lint` via Turbo fallaron por permisos al reproducir logs de cache; las comprobaciones paquete por paquete pasaron. El build completo necesito permisos fuera del sandbox para sobrescribir `dist` en OneDrive.
+Nota: el 2026-05-29 se levanto PostgreSQL con Docker Desktop sobre WSL2; las migraciones Drizzle se aplicaron correctamente y una segunda ejecucion fue idempotente.
 
 ## Fase 1 - Motor NLHE heads-up
 
@@ -145,8 +162,8 @@ Nota: `docker compose config` no se pudo ejecutar porque Docker no esta instalad
 
 - [x] Hacer el primer commit del estado base y Fase 1 inicial.
 - [x] Conectar TableActor a PostgreSQL real con Drizzle.
-- [ ] Instanciar el store Drizzle desde el runtime NestJS/Socket.IO cuando se cree la app real.
-- [ ] Validar migraciones contra PostgreSQL real cuando Docker o una DB remota este disponible.
+- [x] Instanciar el store Drizzle desde el runtime de API que usara NestJS/Socket.IO cuando se cree la app real.
+- [x] Validar migraciones contra PostgreSQL real cuando Docker o una DB remota este disponible.
 
 ## Fuera de alcance por ahora
 
