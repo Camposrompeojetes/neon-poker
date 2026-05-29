@@ -184,4 +184,60 @@ describe("api HTTP server", () => {
     expect(response.status).toBe(400);
     expect(await response.json()).toHaveProperty("error");
   });
+
+  it("serves sanitized hand replay events", async () => {
+    const runtime = createTestRuntime();
+    const baseUrl = await listen(runtime);
+
+    await fetch(`${baseUrl}/messages`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-player-id": "alice"
+      },
+      body: JSON.stringify({
+        type: "table.sitDown",
+        requestId: "req_sit_a",
+        tableId: "table_1",
+        seatIndex: 0
+      })
+    });
+    const seated = await fetch(`${baseUrl}/messages`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-player-id": "bob"
+      },
+      body: JSON.stringify({
+        type: "table.sitDown",
+        requestId: "req_sit_b",
+        tableId: "table_1",
+        seatIndex: 1
+      })
+    });
+    const seatedJson = (await seated.json()) as {
+      envelopes: Array<{ payload: { hand: { handId: string } } }>;
+    };
+    const firstEnvelope = seatedJson.envelopes[0];
+
+    if (firstEnvelope === undefined) {
+      throw new Error("Expected table snapshot envelope");
+    }
+
+    const handId = firstEnvelope.payload.hand.handId;
+    const replay = await fetch(`${baseUrl}/hands/${handId}/replay`);
+    const replayJson = (await replay.json()) as {
+      events: Array<{ eventType: string }>;
+    };
+
+    expect(replay.status).toBe(200);
+    expect(replayJson.events.map((event: { eventType: string }) => event.eventType)).toEqual([
+      "HandStarted",
+      "BlindPosted",
+      "BlindPosted",
+      "ActionRequested"
+    ]);
+    expect(JSON.stringify(replayJson)).not.toContain("PrivateCardsDealt");
+    expect(JSON.stringify(replayJson)).not.toContain("deck");
+  });
 });

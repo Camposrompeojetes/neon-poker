@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 
 import type { ServerEnvelope } from "@neon-poker/contracts";
 
+import { loadPublicHandReplay } from "./hand-history.js";
 import { ApiMessageRouter } from "./message-router.js";
 import {
   createApiRuntime,
@@ -110,6 +111,25 @@ async function handleRequest(
     sendJson(response, 200, {
       type: "table.snapshot",
       payload: runtime.actor.snapshotForPlayer(playerId)
+    });
+    return;
+  }
+
+  const handReplayMatch = /^\/hands\/([^/]+)\/replay$/.exec(url.pathname);
+
+  if (request.method === "GET" && handReplayMatch !== null) {
+    const handId = handReplayMatch[1];
+
+    if (handId === undefined || handId.length === 0) {
+      throw new Error("handId is required");
+    }
+
+    sendJson(response, 200, {
+      handId,
+      events: await loadPublicHandReplay({
+        store: runtime.store,
+        handId
+      })
     });
     return;
   }

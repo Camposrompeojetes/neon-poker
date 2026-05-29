@@ -154,6 +154,24 @@ export class DrizzleTableActorStore implements TableActorStore {
     };
   }
 
+  async loadHandEvents(handId: string): Promise<readonly PersistableHandEvent[]> {
+    const rows = await this.db
+      .select()
+      .from(handEvents)
+      .where(eq(handEvents.handId, handId))
+      .orderBy(asc(handEvents.seq));
+
+    return rows.map((event) => ({
+      handId: event.handId,
+      seq: event.seq,
+      eventType: event.eventType,
+      payload: event.payload,
+      schemaVersion: event.schemaVersion,
+      stateHashAfter: event.stateHashAfter
+    }));
+  }
+
+
   async findGameActionRequest(args: {
     tableId: string;
     playerId: string;

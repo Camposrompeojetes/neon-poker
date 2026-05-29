@@ -5,6 +5,7 @@ export * from "./table-actor.js";
 export * from "./drizzle-table-actor-store.js";
 export * from "./runtime.js";
 export * from "./message-router.js";
+export * from "./hand-history.js";
 export * from "./http-server.js";
 
 export function validateIncomingMessage(payload: unknown) {

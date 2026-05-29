@@ -54,6 +54,7 @@ export type TableActorStore = {
     handEvents: readonly PersistableHandEvent[];
   }): Promise<void>;
   loadLatestHandReplay?(): Promise<StoredHandReplay | null>;
+  loadHandEvents?(handId: string): Promise<readonly PersistableHandEvent[]>;
   findGameActionRequest(args: {
     tableId: string;
     playerId: string;
@@ -140,6 +141,12 @@ export class InMemoryTableActorStore implements TableActorStore {
       participants: participants.map((participant) => clone(participant)),
       handEvents: handEvents.map((event) => clone(event))
     };
+  }
+
+  async loadHandEvents(handId: string): Promise<readonly PersistableHandEvent[]> {
+    return this.handEvents
+      .filter((event) => event.handId === handId)
+      .map((event) => clone(event));
   }
 
   async findGameActionRequest(args: {
